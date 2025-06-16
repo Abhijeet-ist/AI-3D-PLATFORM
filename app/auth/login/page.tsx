@@ -14,6 +14,13 @@ import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Eye, EyeOff, Mail, Lock, Github, Chrome, CuboidIcon as Cube, Sparkles, ArrowRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { auth } from "@/lib/firebase"
+import { 
+  signInWithEmailAndPassword, 
+  GoogleAuthProvider, 
+  GithubAuthProvider, 
+  signInWithPopup 
+} from "firebase/auth"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -28,38 +35,104 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      if (email && password) {
-        localStorage.setItem("isLoggedIn", "true")
-        localStorage.setItem("userEmail", email)
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully logged in.",
-        })
-        router.push("/dashboard")
-      } else {
+    try {
+      if (!email || !password) {
         toast({
           title: "Error",
           description: "Please fill in all fields.",
           variant: "destructive",
         })
+        setIsLoading(false)
+        return
       }
+
+      // Sign in with email and password using Firebase
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      
+      // Save user info in localStorage for UI purposes
+      localStorage.setItem("isLoggedIn", "true")
+      localStorage.setItem("userEmail", email)
+      if (userCredential.user.displayName) {
+        localStorage.setItem("userName", userCredential.user.displayName)
+      }
+      
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully logged in.",
+      })
+      
+      router.push("/dashboard")
+    } catch (error: any) {
+      let errorMessage = "Failed to sign in";
+      
+      // Handle specific Firebase errors
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        errorMessage = "Invalid email or password. Please try again.";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "Invalid email format.";
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = "Too many failed login attempts. Please try again later.";
+      }
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
       setIsLoading(false)
-    }, 1500)
+    }
   }
 
-  const handleSocialLogin = (provider: string) => {
+  const handleSocialLogin = async (provider: string) => {
     setIsLoading(true)
-    setTimeout(() => {
+    
+    try {
+      let authProvider;
+      
+      if (provider === "google") {
+        authProvider = new GoogleAuthProvider();
+      } else if (provider === "github") {
+        authProvider = new GithubAuthProvider();
+      } else {
+        throw new Error("Unsupported provider");
+      }
+      
+      const result = await signInWithPopup(auth, authProvider);
+      
+      // Save user info in localStorage for UI purposes
       localStorage.setItem("isLoggedIn", "true")
-      localStorage.setItem("userEmail", `user@${provider}.com`)
+      if (result.user.email) {
+        localStorage.setItem("userEmail", result.user.email)
+      }
+      if (result.user.displayName) {
+        localStorage.setItem("userName", result.user.displayName)
+      }
+      
       toast({
         title: "Welcome!",
         description: `Successfully logged in with ${provider}.`,
       })
+      
       router.push("/dashboard")
-    }, 1000)
+    } catch (error: any) {
+      let errorMessage = `Failed to sign in with ${provider}`;
+      
+      // Handle specific errors
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        errorMessage = "An account already exists with the same email address but different sign-in credentials.";
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = "Sign-in popup was closed before completing the sign-in.";
+      }
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (

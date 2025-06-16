@@ -14,6 +14,14 @@ import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Eye, EyeOff, Mail, Lock, User, Github, Chrome, CuboidIcon as Cube, Sparkles, ArrowRight } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { auth } from "@/lib/firebase"
+import { 
+  createUserWithEmailAndPassword, 
+  updateProfile, 
+  GoogleAuthProvider, 
+  GithubAuthProvider, 
+  signInWithPopup 
+} from "firebase/auth"
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -62,31 +70,101 @@ export default function SignupPage() {
       return
     }
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Create user with email and password in Firebase
+      const userCredential = await createUserWithEmailAndPassword(
+        auth, 
+        formData.email, 
+        formData.password
+      )
+      
+      // Update user profile with name
+      await updateProfile(userCredential.user, {
+        displayName: `${formData.firstName} ${formData.lastName}`
+      })
+      
+      // Save some user info in localStorage for UI purposes
       localStorage.setItem("isLoggedIn", "true")
       localStorage.setItem("userEmail", formData.email)
       localStorage.setItem("userName", `${formData.firstName} ${formData.lastName}`)
+      
       toast({
         title: "Welcome to AI3D Studio!",
         description: "Your account has been created successfully.",
       })
+      
       router.push("/dashboard")
+    } catch (error: any) {
+      let errorMessage = "Failed to create account";
+      
+      // Handle specific Firebase errors
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "Email is already in use. Please use a different email or sign in.";
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = "Password is too weak. Please use a stronger password.";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "Invalid email address.";
+      }
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
       setIsLoading(false)
-    }, 2000)
+    }
   }
 
-  const handleSocialSignup = (provider: string) => {
+  const handleSocialSignup = async (provider: string) => {
     setIsLoading(true)
-    setTimeout(() => {
+    
+    try {
+      let authProvider;
+      
+      if (provider === "google") {
+        authProvider = new GoogleAuthProvider();
+      } else if (provider === "github") {
+        authProvider = new GithubAuthProvider();
+      } else {
+        throw new Error("Unsupported provider");
+      }
+      
+      const result = await signInWithPopup(auth, authProvider);
+      
+      // Save user info in localStorage for UI purposes
       localStorage.setItem("isLoggedIn", "true")
-      localStorage.setItem("userEmail", `user@${provider}.com`)
+      if (result.user.email) {
+        localStorage.setItem("userEmail", result.user.email)
+      }
+      if (result.user.displayName) {
+        localStorage.setItem("userName", result.user.displayName)
+      }
+      
       toast({
         title: "Welcome!",
         description: `Successfully signed up with ${provider}.`,
       })
+      
       router.push("/dashboard")
-    }, 1000)
+    } catch (error: any) {
+      let errorMessage = `Failed to sign in with ${provider}`;
+      
+      // Handle specific errors
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        errorMessage = "An account already exists with the same email address but different sign-in credentials.";
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = "Sign-in popup was closed before completing the sign-in.";
+      }
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
