@@ -35,6 +35,53 @@ export function Navbar() {
   const pathname = usePathname()
   const router = useRouter()
 
+  // Update auth state when route changes
+  useEffect(() => {
+    const loggedIn = localStorage.getItem("isLoggedIn") === "true"
+    const email = localStorage.getItem("userEmail") || ""
+    const name = localStorage.getItem("userName") || ""
+    setIsLoggedIn(loggedIn)
+    setUserEmail(email)
+    setUserName(name)
+    
+    // Dispatch an event to notify that route has changed
+    window.dispatchEvent(new Event("routeChange"))
+  }, [pathname])
+
+  useEffect(() => {
+    // Function to update auth state from localStorage
+    const updateAuthState = () => {
+      const loggedIn = localStorage.getItem("isLoggedIn") === "true"
+      const email = localStorage.getItem("userEmail") || ""
+      const name = localStorage.getItem("userName") || ""
+      setIsLoggedIn(loggedIn)
+      setUserEmail(email)
+      setUserName(name)
+    }
+
+    // Check auth state on initial load
+    updateAuthState()
+
+    // Listen for storage events (when localStorage changes in other tabs)
+    window.addEventListener("storage", updateAuthState)
+
+    // Set up event listener for custom auth change events within the same tab
+    window.addEventListener("authStateChanged", updateAuthState)
+
+    // Check auth state on each route change
+    const handleRouteChange = () => {
+      updateAuthState()
+    }
+    window.addEventListener("routeChange", handleRouteChange)
+
+    return () => {
+      window.removeEventListener("storage", updateAuthState)
+      window.removeEventListener("authStateChanged", updateAuthState)
+      window.removeEventListener("routeChange", handleRouteChange)
+    }
+  }, [])
+
+  // Handle scroll effect for navbar
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10)
@@ -43,20 +90,15 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  useEffect(() => {
-    const loggedIn = localStorage.getItem("isLoggedIn") === "true"
-    const email = localStorage.getItem("userEmail") || ""
-    const name = localStorage.getItem("userName") || ""
-    setIsLoggedIn(loggedIn)
-    setUserEmail(email)
-    setUserName(name)
-  }, [])
-
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn")
     localStorage.removeItem("userEmail")
     localStorage.removeItem("userName")
     setIsLoggedIn(false)
+    
+    // Dispatch an event to notify that auth state changed
+    window.dispatchEvent(new Event("authStateChanged"))
+    
     router.push("/")
   }
 

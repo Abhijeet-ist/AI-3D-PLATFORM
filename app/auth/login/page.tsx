@@ -56,6 +56,9 @@ export default function LoginPage() {
         localStorage.setItem("userName", userCredential.user.displayName)
       }
       
+      // Dispatch an event to notify that auth state changed
+      window.dispatchEvent(new Event("authStateChanged"))
+      
       toast({
         title: "Welcome back!",
         description: "You have successfully logged in.",
@@ -108,6 +111,9 @@ export default function LoginPage() {
       if (result.user.displayName) {
         localStorage.setItem("userName", result.user.displayName)
       }
+      
+      // Dispatch an event to notify that auth state changed
+      window.dispatchEvent(new Event("authStateChanged"))
       
       toast({
         title: "Welcome!",

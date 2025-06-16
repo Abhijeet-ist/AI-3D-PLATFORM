@@ -88,6 +88,9 @@ export default function SignupPage() {
       localStorage.setItem("userEmail", formData.email)
       localStorage.setItem("userName", `${formData.firstName} ${formData.lastName}`)
       
+      // Dispatch an event to notify that auth state changed
+      window.dispatchEvent(new Event("authStateChanged"))
+      
       toast({
         title: "Welcome to AI3D Studio!",
         description: "Your account has been created successfully.",
@@ -140,6 +143,9 @@ export default function SignupPage() {
       if (result.user.displayName) {
         localStorage.setItem("userName", result.user.displayName)
       }
+      
+      // Dispatch an event to notify that auth state changed
+      window.dispatchEvent(new Event("authStateChanged"))
       
       toast({
         title: "Welcome!",
